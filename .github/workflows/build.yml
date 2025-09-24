@@ -1,9 +1,7 @@
 name: Build Flutter APK
 
 on:
-  push:
-    branches:
-      - main  # or 'main' if that's your default branch
+  workflow_dispatch:  # Enables manual trigger from GitHub UI
 
 jobs:
   build:
