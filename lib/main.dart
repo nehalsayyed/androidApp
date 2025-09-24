@@ -1,4 +1,109 @@
-import 'dart:async';
+
+
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:photo_view/photo_view.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:animations/animations.dart';
+
+void main() {
+  runApp(GalleryApp());
+}
+
+class GalleryApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Image Gallery',
+      theme: ThemeData(
+        primarySwatch: Colors.deepPurple,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+      ),
+      home: GalleryHome(),
+    );
+  }
+}
+
+class GalleryHome extends StatefulWidget {
+  @override
+  _GalleryHomeState createState() => _GalleryHomeState();
+}
+
+class _GalleryHomeState extends State<GalleryHome> {
+  final ImagePicker _picker = ImagePicker();
+  List<File> _images = [];
+
+  Future<void> _pickImage(ImageSource source) async {
+    final status = await Permission.camera.request();
+    if (!status.isGranted) return;
+
+    final pickedFile = await _picker.pickImage(source: source);
+    if (pickedFile != null) {
+      setState(() {
+        _images.add(File(pickedFile.path));
+      });
+    }
+  }
+
+  Widget _buildImageTile(File image) {
+    return OpenContainer(
+      closedElevation: 0,
+      transitionDuration: Duration(milliseconds: 500),
+      closedBuilder: (context, action) => ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.file(image, fit: BoxFit.cover),
+      ),
+      openBuilder: (context, action) => Scaffold(
+        appBar: AppBar(title: Text("View Image")),
+        body: Center(
+          child: PhotoView(imageProvider: FileImage(image)),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("My Gallery"),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.camera_alt),
+            onPressed: () => _pickImage(ImageSource.camera),
+          ),
+          IconButton(
+            icon: Icon(Icons.photo_library),
+            onPressed: () => _pickImage(ImageSource.gallery),
+          ),
+        ],
+      ),
+      body: _images.isEmpty
+          ? Center(child: Text("No images yet. Tap camera or gallery."))
+          : GridView.builder(
+              padding: EdgeInsets.all(10),
+              itemCount: _images.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2, crossAxisSpacing: 10, mainAxisSpacing: 10,
+              ),
+              itemBuilder: (context, index) => _buildImageTile(_images[index]),
+            ),
+    );
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+/*import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 
@@ -237,5 +342,5 @@ class AboutPage extends StatelessWidget {
       ),
     );
   }
-}
+}*/
 
