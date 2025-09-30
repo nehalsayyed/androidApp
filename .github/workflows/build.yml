@@ -1,7 +1,7 @@
 name: Build Flutter APK
 
 on:
-  workflow_dispatch:  # Enables manual trigger from GitHub UI
+  push:  # Enables manual trigger from GitHub UI
 
 jobs:
   build:
