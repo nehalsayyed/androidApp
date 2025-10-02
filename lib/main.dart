@@ -1,98 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:torch_controller/torch_controller.dart';
 
-void main() => runApp(TorchApp());
+void main() {
+  TorchController().initialize();
+  runApp(MyApp());
+}
 
-class TorchApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
+  @override
+  _MyAppState createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  final controller = TorchController();
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Torch App',
-      theme: ThemeData.dark(),
-      home: TorchHomePage(),
-      debugShowCheckedModeBanner: false,
-    );
-  }
-}
+      home: Scaffold(
+        appBar: AppBar(
+          title: const Text('Plugin example app'),
+        ),
+        body: Center(
+          child: Column(
+            children: [
+              FutureBuilder<bool?>(
+                  future: controller.isTorchActive,
+                  builder: (_, snapshot) {
+                    final snapshotData = snapshot.data ?? false;
 
-class TorchHomePage extends StatefulWidget {
-  @override
-  _TorchHomePageState createState() => _TorchHomePageState();
-}
+                    if (snapshot.connectionState == ConnectionState.done)
+                      return Text(
+                          'Is torch on? ${snapshotData ? 'Yes!' : 'No :('}');
 
-class _TorchHomePageState extends State<TorchHomePage>
-    with SingleTickerProviderStateMixin {
-  final controller = TorchController();
-  bool isOn = false;
-  late AnimationController _animController;
-  late Animation<double> _glow;
-
-  @override
-  void initState() {
-    super.initState();
-    _animController = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: 800),
-    )..repeat(reverse: true);
-
-    _glow = Tween<double>(begin: 1.0, end: 1.3).animate(
-      CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
-    );
-  }
-
-  void toggleTorch() {
-    if (isOn) {
-      controller.turnOff();
-      _animController.stop();
-    } else {
-      controller.turnOn();
-      _animController.repeat(reverse: true);
-    }
-    setState(() => isOn = !isOn);
-  }
-
-  @override
-  void dispose() {
-    _animController.dispose();
-    controller.turnOff();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Center(
-        child: GestureDetector(
-          onTap: toggleTorch,
-          child: AnimatedBuilder(
-            animation: _glow,
-            builder: (context, child) {
-              return Transform.scale(
-                scale: isOn ? _glow.value : 1.0,
-                child: Container(
-                  padding: EdgeInsets.all(40),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isOn ? Colors.amber : Colors.grey[800],
-                    boxShadow: isOn
-                        ? [
-                            BoxShadow(
-                              color: Colors.amber.withOpacity(0.6),
-                              blurRadius: 30,
-                              spreadRadius: 10,
-                            )
-                          ]
-                        : [],
-                  ),
-                  child: Icon(
-                    isOn ? Icons.flashlight_on : Icons.flashlight_off,
-                    size: 80,
-                    color: Colors.black,
-                  ),
-                ),
-              );
-            },
+                    return Container();
+                  }),
+              MaterialButton(
+                  child: Text('Toggle'),
+                  onPressed: () {
+                    controller.toggle(intensity: 1);
+                    setState(() {});
+                  }),
+            ],
           ),
         ),
       ),
