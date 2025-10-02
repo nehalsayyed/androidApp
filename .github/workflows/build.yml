@@ -20,12 +20,13 @@ jobs:
           path: /opt/flutter
           key: flutter-sdk-${{ runner.os }}-3.35.4
 
-      - name: Install Flutter (from cache or fresh)
+      - name: Install Flutter
         run: |
           if [ ! -d "/opt/flutter" ]; then
             git clone https://github.com/flutter/flutter.git -b 3.35.4 /opt/flutter
           fi
           echo "/opt/flutter/bin" >> $GITHUB_PATH
+          export PATH="/opt/flutter/bin:$PATH"
           flutter --version
 
       - name: Cache Android SDK
@@ -34,11 +35,11 @@ jobs:
           path: $HOME/android-sdk
           key: android-sdk-${{ runner.os }}
 
-      - name: Set up Android SDK
+      - name: Install Android SDK
         run: |
           if [ ! -d "$HOME/android-sdk" ]; then
             mkdir -p $HOME/android-sdk
-            yes | sdkmanager --sdk_root=$HOME/android-sdk "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+            yes | sudo sdkmanager --sdk_root=$HOME/android-sdk "platform-tools" "platforms;android-33" "build-tools;33.0.2"
           fi
           echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
 
@@ -50,5 +51,6 @@ jobs:
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
-        name: arm64-release-apk
+        with:
+          name: arm64-release-apk
           path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
