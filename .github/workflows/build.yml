@@ -5,39 +5,50 @@ on:
 
 jobs:
   build:
-    name: Build APK
+    name: Build ARM64 APK
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout source code
         uses: actions/checkout@v3
         with:
-          fetch-depth: 1  # Speeds up checkout by fetching only latest commit
+          fetch-depth: 1
 
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.35.4'
-          cache: true  # Enables caching of Flutter SDK
-
-      - name: Cache Flutter dependencies
+      - name: Cache Flutter SDK
         uses: actions/cache@v3
         with:
-          path: |
-            ~/.pub-cache
-            build
-          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-flutter-
+          path: /opt/flutter
+          key: flutter-sdk-${{ runner.os }}-3.35.4
+
+      - name: Install Flutter (from cache or fresh)
+        run: |
+          if [ ! -d "/opt/flutter" ]; then
+            git clone https://github.com/flutter/flutter.git -b 3.35.4 /opt/flutter
+          fi
+          echo "/opt/flutter/bin" >> $GITHUB_PATH
+          flutter --version
+
+      - name: Cache Android SDK
+        uses: actions/cache@v3
+        with:
+          path: $HOME/android-sdk
+          key: android-sdk-${{ runner.os }}
+
+      - name: Set up Android SDK
+        run: |
+          if [ ! -d "$HOME/android-sdk" ]; then
+            mkdir -p $HOME/android-sdk
+            yes | sdkmanager --sdk_root=$HOME/android-sdk "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+          fi
+          echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build APK
-        run: flutter build apk --release --split-per-abi  # Optional: smaller APKs, faster build
+      - name: Build ARM64 APK
+        run: flutter build apk --release --target-platform android-arm64
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
-        with:
-          name: release-apk
-          path: build/app/outputs/flutter-apk/
+        name: arm64-release-apk
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
