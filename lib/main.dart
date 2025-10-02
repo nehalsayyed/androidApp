@@ -1,672 +1,591 @@
+// Copyright 2013 The Flutter Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+import 'dart:async';
+import 'dart:io';
+
+import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:video_player/video_player.dart';
 
-// --- Color and Styling Constants ---
-
-const Color kPrimaryYellow = Color(0xFFFFC000); 
-const Color kDarkBrown = Color(0xFF332A20); 
-const Color kLightGrey = Color(0xFFE0E0E0); 
-
-const TextStyle kTitleStyle = TextStyle(
-  color: kDarkBrown,
-  fontSize: 18,
-  fontWeight: FontWeight.bold,
-);
-
-const TextStyle kLabelStyle = TextStyle(
-  color: kDarkBrown,
-  fontSize: 14,
-  fontWeight: FontWeight.w600,
-);
-
-const TextStyle kPriceStyle = TextStyle(
-  color: kDarkBrown,
-  fontSize: 14,
-  fontWeight: FontWeight.bold,
-);
-
-// --- Main Application Widget ---
-
-void main() {
-  runApp(const ShoppingApp());
-}
-
-class ShoppingApp extends StatelessWidget {
-  const ShoppingApp({super.key});
+/// Camera example home widget.
+class CameraExampleHome extends StatefulWidget {
+  /// Default Constructor
+  const CameraExampleHome({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Shopping UI Clone',
-      theme: ThemeData(
-        primaryColor: kPrimaryYellow,
-        scaffoldBackgroundColor: kPrimaryYellow,
-        colorScheme: const ColorScheme.light(
-          primary: kPrimaryYellow,
-          onPrimary: kDarkBrown,
-          secondary: kDarkBrown,
-          surface: kPrimaryYellow,
-          onSurface: kDarkBrown,
-        ),
-        useMaterial3: true,
-      ),
-      home: const HomeScreen(),
-    );
+  State<CameraExampleHome> createState() {
+    return _CameraExampleHomeState();
   }
 }
 
-// --- Home Screen Widget (Now Stateful) ---
+/// Returns a suitable camera icon for [direction].
+IconData getCameraLensIcon(CameraLensDirection direction) {
+  switch (direction) {
+    case CameraLensDirection.back:
+      return Icons.camera_rear;
+    case CameraLensDirection.front:
+      return Icons.camera_front;
+    case CameraLensDirection.external:
+      return Icons.camera;
+  }
+  // This enum is from a different package, so a new value could be added at
+  // any time. The example should keep working if that happens.
+  // ignore: dead_code
+  return Icons.camera;
+}
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+void _logError(String code, String? message) {
+  // ignore: avoid_print
+  print('Error: $code${message == null ? '' : '\nError Message: $message'}');
+}
+
+class _CameraExampleHomeState extends State<CameraExampleHome>
+    with WidgetsBindingObserver, TickerProviderStateMixin {
+  CameraController? controller;
+  XFile? imageFile;
+  XFile? videoFile;
+  VideoPlayerController? videoController;
+  VoidCallback? videoPlayerListener;
+  bool enableAudio = true;
+  double _minAvailableExposureOffset = 0.0;
+  double _maxAvailableExposureOffset = 0.0;
+  double _currentExposureOffset = 0.0;
+  late final AnimationController _flashModeControlRowAnimationController;
+  late final CurvedAnimation _flashModeControlRowAnimation;
+  late final AnimationController _exposureModeControlRowAnimationController;
+  late final CurvedAnimation _exposureModeControlRowAnimation;
+  late final AnimationController _focusModeControlRowAnimationController;
+  late final CurvedAnimation _focusModeControlRowAnimation;
+  double _minAvailableZoom = 1.0;
+  double _maxAvailableZoom = 1.0;
+  double _currentScale = 1.0;
+  double _baseScale = 1.0;
+
+  // Counting pointers (number of user fingers on screen)
+  int _pointers = 0;
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
-class _HomeScreenState extends State<HomeScreen> {
-  // State for the selected category
-  String _selectedCategory = 'All';
-  // State for the active bottom navigation bar index
-  int _currentIndex = 0;
-
-  // Function to handle category selection
-  void _selectCategory(String category) {
-    setState(() {
-      _selectedCategory = category;
-    });
-    // Add simple feedback when a category is selected
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Selected category: $category'),
-        duration: const Duration(milliseconds: 500),
-      ),
+    _flashModeControlRowAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _flashModeControlRowAnimation = CurvedAnimation(
+      parent: _flashModeControlRowAnimationController,
+      curve: Curves.easeInCubic,
+    );
+    _exposureModeControlRowAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _exposureModeControlRowAnimation = CurvedAnimation(
+      parent: _exposureModeControlRowAnimationController,
+      curve: Curves.easeInCubic,
+    );
+    _focusModeControlRowAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _focusModeControlRowAnimation = CurvedAnimation(
+      parent: _focusModeControlRowAnimationController,
+      curve: Curves.easeInCubic,
     );
   }
 
-  // Function to handle bottom navigation bar taps
-  void _onTabTapped(int index) {
-    setState(() {
-      _currentIndex = index;
-    });
-    // Add simple feedback for tab change
-    List<String> tabs = ['Home', 'Explore', 'Basket', 'Profile'];
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Navigated to: ${tabs[index]}'),
-        duration: const Duration(milliseconds: 500),
-      ),
-    );
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _flashModeControlRowAnimationController.dispose();
+    _flashModeControlRowAnimation.dispose();
+    _exposureModeControlRowAnimationController.dispose();
+    _exposureModeControlRowAnimation.dispose();
+    _focusModeControlRowAnimationController.dispose();
+    _focusModeControlRowAnimation.dispose();
+    super.dispose();
   }
+
+  // #docregion AppLifecycle
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final CameraController? cameraController = controller;
+
+    // App state changed before we got the chance to initialize.
+    if (cameraController == null || !cameraController.value.isInitialized) {
+      return;
+    }
+
+    if (state == AppLifecycleState.inactive) {
+      cameraController.dispose();
+    } else if (state == AppLifecycleState.resumed) {
+      _initializeCameraController(cameraController.description);
+    }
+  }
+  // #enddocregion AppLifecycle
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
+      appBar: AppBar(
+        title: const Text('Camera example'),
+      ),
+      body: Column(
+        children: <Widget>[
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black,
+                border: Border.all(
+                  color:
+                      controller != null && controller!.value.isRecordingVideo
+                          ? Colors.redAccent
+                          : Colors.grey,
+                  width: 3.0,
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(1.0),
+                child: Center(
+                  child: _cameraPreviewWidget(),
+                ),
+              ),
+            ),
+          ),
+          _captureControlRowWidget(),
+          _modeControlRowWidget(),
+          Padding(
+            padding: const EdgeInsets.all(5.0),
+            child: Row(
+              children: <Widget>[
+                _cameraTogglesRowWidget(),
+                _thumbnailWidget(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Display the preview from the camera (or a message if the preview is not available).
+  Widget _cameraPreviewWidget() {
+    final CameraController? cameraController = controller;
+
+    if (cameraController == null || !cameraController.value.isInitialized) {
+      return const Text(
+        'Tap a camera',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 24.0,
+          fontWeight: FontWeight.w900,
+        ),
+      );
+    } else {
+      return Listener(
+        onPointerDown: (_) => _pointers++,
+        onPointerUp: (_) => _pointers--,
+        child: CameraPreview(
+          controller!,
+          child: LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onScaleStart: _handleScaleStart,
+              onScaleUpdate: _handleScaleUpdate,
+              onTapDown: (TapDownDetails details) =>
+                  onViewFinderTap(details, constraints),
+            );
+          }),
+        ),
+      );
+    }
+  }
+
+  void _handleScaleStart(ScaleStartDetails details) {
+    _baseScale = _currentScale;
+  }
+
+  Future<void> _handleScaleUpdate(ScaleUpdateDetails details) async {
+    // When there are not exactly two fingers on screen don't scale
+    if (controller == null || _pointers != 2) {
+      return;
+    }
+
+    _currentScale = (_baseScale * details.scale)
+        .clamp(_minAvailableZoom, _maxAvailableZoom);
+
+    await controller!.setZoomLevel(_currentScale);
+  }
+
+  /// Display the thumbnail of the captured image or video.
+  Widget _thumbnailWidget() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        if (videoController case final VideoPlayerController controller?)
+          Container(
+            width: 64.0,
+            height: 64.0,
+            decoration: BoxDecoration(border: Border.all(color: Colors.pink)),
+            child: Center(
+              child: AspectRatio(
+                aspectRatio: controller.value.aspectRatio,
+                child: VideoPlayer(controller),
+              ),
+            ),
+          )
+        else if (imageFile?.path case final String path)
+          Container(
+            width: 64.0,
+            height: 64.0,
+            decoration: BoxDecoration(border: Border.all(color: Colors.pink)),
+            // The captured image on the web contains a network-accessible URL
+            // pointing to a location within the browser. It may be displayed
+            // either with Image.network or Image.memory after loading the image
+            // bytes to memory.
+            child: kIsWeb ? Image.network(path) : Image.file(File(path)),
+          ),
+      ],
+    );
+  }
+
+  /// Display a bar with buttons to change the flash and exposure modes
+  Widget _modeControlRowWidget() {
+    return Column(
+      children: <Widget>[
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: <Widget>[
+            IconButton(
+              icon: const Icon(Icons.flash_on),
+              color: Colors.blue,
+              onPressed: controller != null ? onFlashModeButtonPressed : null,
+            ),
+            // The exposure and focus mode are currently not supported on the web.
+            ...!kIsWeb
+                ? <Widget>[
+                    IconButton(
+                      icon: const Icon(Icons.exposure),
+                      color: Colors.blue,
+                      onPressed: controller != null
+                          ? onExposureModeButtonPressed
+                          : null,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.filter_center_focus),
+                      color: Colors.blue,
+                      onPressed:
+                          controller != null ? onFocusModeButtonPressed : null,
+                    )
+                  ]
+                : <Widget>[],
+            IconButton(
+              icon: Icon(enableAudio ? Icons.volume_up : Icons.volume_mute),
+              color: Colors.blue,
+              onPressed: controller != null ? onAudioModeButtonPressed : null,
+            ),
+            IconButton(
+              icon: Icon(controller?.value.isCaptureOrientationLocked ?? false
+                  ? Icons.screen_lock_rotation
+                  : Icons.screen_rotation),
+              color: Colors.blue,
+              onPressed: controller != null
+                  ? onCaptureOrientationLockButtonPressed
+                  : null,
+            ),
+          ],
+        ),
+        _flashModeControlRowWidget(),
+        _exposureModeControlRowWidget(),
+        _focusModeControlRowWidget(),
+      ],
+    );
+  }
+
+  Widget _flashModeControlRowWidget() {
+    return SizeTransition(
+      sizeFactor: _flashModeControlRowAnimation,
+      child: ClipRect(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: <Widget>[
+            IconButton(
+              icon: const Icon(Icons.flash_off),
+              color: controller?.value.flashMode == FlashMode.off
+                  ? Colors.orange
+                  : Colors.blue,
+              onPressed: controller != null
+                  ? () => onSetFlashModeButtonPressed(FlashMode.off)
+                  : null,
+            ),
+            IconButton(
+              icon: const Icon(Icons.flash_auto),
+              color: controller?.value.flashMode == FlashMode.auto
+                  ? Colors.orange
+                  : Colors.blue,
+              onPressed: controller != null
+                  ? () => onSetFlashModeButtonPressed(FlashMode.auto)
+                  : null,
+            ),
+            IconButton(
+              icon: const Icon(Icons.flash_on),
+              color: controller?.value.flashMode == FlashMode.always
+                  ? Colors.orange
+                  : Colors.blue,
+              onPressed: controller != null
+                  ? () => onSetFlashModeButtonPressed(FlashMode.always)
+                  : null,
+            ),
+            IconButton(
+              icon: const Icon(Icons.highlight),
+              color: controller?.value.flashMode == FlashMode.torch
+                  ? Colors.orange
+                  : Colors.blue,
+              onPressed: controller != null
+                  ? () => onSetFlashModeButtonPressed(FlashMode.torch)
+                  : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _exposureModeControlRowWidget() {
+    final ButtonStyle styleAuto = TextButton.styleFrom(
+      foregroundColor: controller?.value.exposureMode == ExposureMode.auto
+          ? Colors.orange
+          : Colors.blue,
+    );
+    final ButtonStyle styleLocked = TextButton.styleFrom(
+      foregroundColor: controller?.value.exposureMode == ExposureMode.locked
+          ? Colors.orange
+          : Colors.blue,
+    );
+
+    return SizeTransition(
+      sizeFactor: _exposureModeControlRowAnimation,
+      child: ClipRect(
+        child: ColoredBox(
+          color: Colors.grey.shade50,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              // 1. Custom App Bar/Header Section
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16.0, 10.0, 16.0, 10.0),
-                child: CustomAppBar(),
+              const Center(
+                child: Text('Exposure Mode'),
               ),
-              
-              // 2. Wallet and Coins Summary Section
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
-                child: WalletCoinsSummary(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: <Widget>[
+                  TextButton(
+                    style: styleAuto,
+                    onPressed: controller != null
+                        ? () =>
+                            onSetExposureModeButtonPressed(ExposureMode.auto)
+                        : null,
+                    onLongPress: () {
+                      if (controller != null) {
+                        controller!.setExposurePoint(null);
+                        showInSnackBar('Resetting exposure point');
+                      }
+                    },
+                    child: const Text('AUTO'),
+                  ),
+                  TextButton(
+                    style: styleLocked,
+                    onPressed: controller != null
+                        ? () =>
+                            onSetExposureModeButtonPressed(ExposureMode.locked)
+                        : null,
+                    child: const Text('LOCKED'),
+                  ),
+                  TextButton(
+                    style: styleLocked,
+                    onPressed: controller != null
+                        ? () => controller!.setExposureOffset(0.0)
+                        : null,
+                    child: const Text('RESET OFFSET'),
+                  ),
+                ],
               ),
-
-              const SizedBox(height: 15.0),
-
-              // 3. Category Section Title
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Category', style: kTitleStyle),
-                    const Icon(Icons.sort, color: kDarkBrown),
-                  ],
-                ),
+              const Center(
+                child: Text('Exposure Offset'),
               ),
-
-              // 4. Category Grid (Pass callback and state)
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: CategoryGrid(
-                  selectedCategory: _selectedCategory,
-                  onCategorySelected: _selectCategory,
-                ),
-              ),
-
-              // 5. Recommended Section Title
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Recommended', style: kTitleStyle),
-                    const Icon(Icons.sort, color: kDarkBrown),
-                  ],
-                ),
-              ),
-
-              // 6. Recommended Products List (Horizontal Scroll)
-              const SizedBox(height: 15.0),
-              const RecommendedProductsList(),
-
-              // A tall dark section at the bottom to match the design's footer
-              const SizedBox(height: 15.0), 
-              Container(
-                height: 120, 
-                color: kDarkBrown,
-                width: double.infinity,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: <Widget>[
+                  Text(_minAvailableExposureOffset.toString()),
+                  Slider(
+                    value: _currentExposureOffset,
+                    min: _minAvailableExposureOffset,
+                    max: _maxAvailableExposureOffset,
+                    label: _currentExposureOffset.toString(),
+                    onChanged: _minAvailableExposureOffset ==
+                            _maxAvailableExposureOffset
+                        ? null
+                        : setExposureOffset,
+                  ),
+                  Text(_maxAvailableExposureOffset.toString()),
+                ],
               ),
             ],
           ),
         ),
       ),
-      // 7. Custom Bottom Navigation Bar (Pass callback and state)
-      bottomNavigationBar: CustomBottomNavBar(
-        currentIndex: _currentIndex,
-        onTap: _onTabTapped,
-      ),
     );
   }
-}
 
-// --- Component: Custom App Bar (Added simple tap functionality) ---
+  Widget _focusModeControlRowWidget() {
+    final ButtonStyle styleAuto = TextButton.styleFrom(
+      foregroundColor: controller?.value.focusMode == FocusMode.auto
+          ? Colors.orange
+          : Colors.blue,
+    );
+    final ButtonStyle styleLocked = TextButton.styleFrom(
+      foregroundColor: controller?.value.focusMode == FocusMode.locked
+          ? Colors.orange
+          : Colors.blue,
+    );
 
-class CustomAppBar extends StatelessWidget {
-  const CustomAppBar({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: <Widget>[
-        // Logo tap functionality
-        GestureDetector(
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Logo tapped!')),
-            );
-          },
-          child: const Icon(
-            Icons.flutter_dash, 
-            color: kDarkBrown,
-            size: 30,
-          ),
-        ),
-        const SizedBox(width: 10),
-        
-        // Search Bar (Added simple function to search icon)
-        Expanded(
-          child: Container(
-            height: 40,
-            decoration: BoxDecoration(
-              color: kPrimaryYellow, 
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: kDarkBrown.withOpacity(0.5), width: 1.0),
-            ),
-            child: TextField(
-              onTap: () {
-                // Simulate focus/search initiation
-                ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Search bar focused...'), duration: Duration(milliseconds: 500)),
-                );
-              },
-              decoration: InputDecoration(
-                hintText: 'Search here...',
-                hintStyle: const TextStyle(color: kDarkBrown),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                prefixIcon: const Icon(Icons.search, color: kDarkBrown),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.mic, color: kDarkBrown),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Voice search activated!'), duration: Duration(milliseconds: 500)),
-                    );
-                  },
-                ), 
+    return SizeTransition(
+      sizeFactor: _focusModeControlRowAnimation,
+      child: ClipRect(
+        child: ColoredBox(
+          color: Colors.grey.shade50,
+          child: Column(
+            children: <Widget>[
+              const Center(
+                child: Text('Focus Mode'),
               ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-
-        // Profile Picture Placeholder tap functionality
-        GestureDetector(
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Profile button tapped!')),
-            );
-          },
-          child: const CircleAvatar(
-            radius: 18,
-            backgroundColor: kDarkBrown,
-            child: Icon(Icons.person, color: kLightGrey, size: 20), 
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// --- Component: Wallet and Coins Summary (Added tap functionality) ---
-
-class WalletCoinsSummary extends StatelessWidget {
-  const WalletCoinsSummary({super.key});
-
-  void _showWalletAction(BuildContext context, String action) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$action tapped!')),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 15.0, horizontal: 20.0),
-      decoration: BoxDecoration(
-        color: kDarkBrown,
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: <Widget>[
-          // My Wallet Section - Made clickable
-          Expanded(
-            child: GestureDetector(
-              onTap: () => _showWalletAction(context, 'Wallet'),
-              child: const SummaryItem(
-                icon: Icons.account_balance_wallet,
-                label: 'My Wallet',
-                value: '\$350',
-              ),
-            ),
-          ),
-          
-          const SizedBox(
-            height: 40,
-            child: VerticalDivider(color: Colors.white70, thickness: 1),
-          ),
-
-          // My Coins Section - Made clickable
-          Expanded(
-            child: GestureDetector(
-              onTap: () => _showWalletAction(context, 'Coins'),
-              child: const SummaryItem(
-                icon: Icons.monetization_on,
-                label: 'My Coins',
-                value: '1234.567',
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Helper Widget for Wallet/Coins Items (No change needed here)
-class SummaryItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const SummaryItem({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: <Widget>[
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: Colors.white, size: 20),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 5),
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// --- Component: Category Grid (Functional with state) ---
-
-class CategoryGrid extends StatelessWidget {
-  final String selectedCategory;
-  final Function(String) onCategorySelected;
-
-  const CategoryGrid({
-    super.key,
-    required this.selectedCategory,
-    required this.onCategorySelected,
-  });
-
-  final List<Map<String, dynamic>> categories = const [
-    {'label': 'All', 'icon': Icons.track_changes},
-    {'label': 'Fashion', 'icon': Icons.checkroom},
-    {'label': 'Electronic', 'icon': Icons.tv},
-    {'label': 'Game', 'icon': Icons.gamepad},
-    {'label': 'Music', 'icon': Icons.headphones},
-    {'label': 'Furniture', 'icon': Icons.chair},
-    {'label': 'Food', 'icon': Icons.fastfood},
-    {'label': 'Other', 'icon': Icons.more_horiz},
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.count(
-      shrinkWrap: true, 
-      physics: const NeverScrollableScrollPhysics(), 
-      crossAxisCount: 4, 
-      mainAxisSpacing: 10.0,
-      crossAxisSpacing: 10.0,
-      childAspectRatio: 0.8, 
-      children: categories.map((category) {
-        final label = category['label'] as String;
-        return CategoryItem(
-          label: label,
-          icon: category['icon'],
-          isSelected: selectedCategory == label,
-          onTap: () => onCategorySelected(label),
-        );
-      }).toList(),
-    );
-  }
-}
-
-// Helper Widget for Category Items (Updated to handle selection state and tap)
-class CategoryItem extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const CategoryItem({
-    super.key,
-    required this.label,
-    required this.icon,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell( // Use InkWell for better visual feedback on tap
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Column(
-        children: [
-          // The icon background square 
-          Container(
-            width: 55,
-            height: 55,
-            decoration: BoxDecoration(
-              color: isSelected ? kPrimaryYellow : kDarkBrown, // Color changes based on selection
-              borderRadius: BorderRadius.circular(10), 
-              border: isSelected ? Border.all(color: kDarkBrown, width: 2.0) : null,
-            ),
-            child: Icon(
-              icon,
-              color: isSelected ? kDarkBrown : kPrimaryYellow, // Icon color changes
-              size: 30,
-            ),
-          ),
-          const SizedBox(height: 5),
-          // The category label text
-          Text(
-            label,
-            style: kLabelStyle.copyWith(
-              fontSize: 13,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// --- Component: Recommended Products List (Added tap functionality) ---
-
-class RecommendedProductsList extends StatelessWidget {
-  const RecommendedProductsList({super.key});
-
-  final List<Map<String, dynamic>> products = const [
-    {'name': 'T Shirts', 'price': 10, 'color': kDarkBrown},
-    {'name': 'Trousers', 'price': 15, 'color': kDarkBrown},
-    {'name': 'Bag', 'price': 25, 'color': kDarkBrown},
-    {'name': 'Monitor', 'price': 300, 'color': kDarkBrown},
-    {'name': 'Table', 'price': 90, 'color': kDarkBrown},
-    {'name': 'Dish', 'price': 12, 'color': kDarkBrown},
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 200, 
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: products.length,
-        itemBuilder: (context, index) {
-          return Padding(
-            padding: EdgeInsets.only(
-              left: 16.0,
-              right: index == products.length - 1 ? 16.0 : 0, 
-            ),
-            child: ProductCard(
-              name: products[index]['name'],
-              price: products[index]['price'],
-              color: products[index]['color'],
-              imageIndex: index,
-              // Add a simple tap handler
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('${products[index]['name']} tapped! Adding to cart...'), duration: const Duration(milliseconds: 700)),
-                );
-              },
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-// Helper Widget for Product Card (Updated to include tap functionality)
-class ProductCard extends StatelessWidget {
-  final String name;
-  final int price;
-  final Color color;
-  final int imageIndex;
-  final VoidCallback onTap;
-
-  const ProductCard({
-    super.key,
-    required this.name,
-    required this.price,
-    required this.color,
-    required this.imageIndex,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector( // Use GestureDetector for the whole card tap
-      onTap: onTap,
-      child: SizedBox(
-        width: 120, 
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            // Placeholder for the Product Image
-            AspectRatio(
-              aspectRatio: 1, 
-              child: Container(
-                decoration: BoxDecoration(
-                  color: kLightGrey, 
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Center(
-                  child: Icon(
-                    [Icons.person, Icons.grass, Icons.work, Icons.monitor, Icons.weekend, Icons.restaurant][imageIndex % 6],
-                    color: color,
-                    size: 50,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: <Widget>[
+                  TextButton(
+                    style: styleAuto,
+                    onPressed: controller != null
+                        ? () => onSetFocusModeButtonPressed(FocusMode.auto)
+                        : null,
+                    onLongPress: () {
+                      if (controller != null) {
+                        controller!.setFocusPoint(null);
+                      }
+                      showInSnackBar('Resetting focus point');
+                    },
+                    child: const Text('AUTO'),
                   ),
-                ),
+                  TextButton(
+                    style: styleLocked,
+                    onPressed: controller != null
+                        ? () => onSetFocusModeButtonPressed(FocusMode.locked)
+                        : null,
+                    child: const Text('LOCKED'),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 5),
-            
-            // Product Name
-            Text(
-              name,
-              style: kLabelStyle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            
-            // Product Price
-            Text(
-              '\$$price',
-              style: kPriceStyle,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
-}
 
-// --- Component: Custom Bottom Navigation Bar (Functional with state) ---
+  /// Display the control bar with buttons to take pictures and record videos.
+  Widget _captureControlRowWidget() {
+    final CameraController? cameraController = controller;
 
-class CustomBottomNavBar extends StatelessWidget {
-  final int currentIndex;
-  final Function(int) onTap;
-
-  const CustomBottomNavBar({
-    super.key,
-    required this.currentIndex,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 60, 
-      decoration: const BoxDecoration(
-        color: kDarkBrown, 
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: <Widget>[
-          // Home Item
-          NavBarItem(
-            icon: Icons.home_filled,
-            label: 'Home',
-            isSelected: currentIndex == 0,
-            onTap: () => onTap(0),
-          ),
-          // Explore Item
-          NavBarItem(
-            icon: Icons.explore,
-            label: 'Explore',
-            isSelected: currentIndex == 1,
-            onTap: () => onTap(1),
-          ),
-          // Basket Item
-          NavBarItem(
-            icon: Icons.shopping_basket,
-            label: 'Basket',
-            isSelected: currentIndex == 2,
-            onTap: () => onTap(2),
-          ),
-          // Profile Item
-          NavBarItem(
-            icon: Icons.person,
-            label: 'Profile',
-            isSelected: currentIndex == 3,
-            onTap: () => onTap(3),
-          ),
-        ],
-      ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: <Widget>[
+        IconButton(
+          icon: const Icon(Icons.camera_alt),
+          color: Colors.blue,
+          onPressed: cameraController != null &&
+                  cameraController.value.isInitialized &&
+                  !cameraController.value.isRecordingVideo
+              ? onTakePictureButtonPressed
+              : null,
+        ),
+        IconButton(
+          icon: const Icon(Icons.videocam),
+          color: Colors.blue,
+          onPressed: cameraController != null &&
+                  cameraController.value.isInitialized &&
+                  !cameraController.value.isRecordingVideo
+              ? onVideoRecordButtonPressed
+              : null,
+        ),
+        IconButton(
+          icon: cameraController != null &&
+                  cameraController.value.isRecordingPaused
+              ? const Icon(Icons.play_arrow)
+              : const Icon(Icons.pause),
+          color: Colors.blue,
+          onPressed: cameraController != null &&
+                  cameraController.value.isInitialized &&
+                  cameraController.value.isRecordingVideo
+              ? cameraController.value.isRecordingPaused
+                  ? onResumeButtonPressed
+                  : onPauseButtonPressed
+              : null,
+        ),
+        IconButton(
+          icon: const Icon(Icons.stop),
+          color: Colors.red,
+          onPressed: cameraController != null &&
+                  cameraController.value.isInitialized &&
+                  cameraController.value.isRecordingVideo
+              ? onStopButtonPressed
+              : null,
+        ),
+        IconButton(
+          icon: const Icon(Icons.pause_presentation),
+          color:
+              cameraController != null && cameraController.value.isPreviewPaused
+                  ? Colors.red
+                  : Colors.blue,
+          onPressed:
+              cameraController == null ? null : onPausePreviewButtonPressed,
+        ),
+      ],
     );
   }
-}
 
-// Helper Widget for Navigation Bar Item (Updated to include tap functionality)
-class NavBarItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
+  /// Display a row of toggle to select the camera (or a message if no camera is available).
+  Widget _cameraTogglesRowWidget() {
+    final List<Widget> toggles = <Widget>[];
 
-  const NavBarItem({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
+    void onChanged(CameraDescription? description) {
+      if (description == null) {
+        return;
+      }
 
-  @override
-  Widget build(BuildContext context) {
-    final Color itemColor = isSelected ? kPrimaryYellow : Colors.white70;
+      onNewCameraSelected(description);
+    }
 
-    return InkWell( // Use InkWell for better tap response
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min, 
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            color: itemColor,
-            size: 24,
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              color: itemColor,
-              fontSize: 10,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+    if (_cameras.isEmpty) {
+      SchedulerBinding.instance.addPostFrameCallback((_) async {
+        showInSnackBar('No camera found.');
+      });
+      return const Text('None');
+    } else {
+      for (final CameraDescription cameraDescription in _cameras) {
+        toggles.add(
+          SizedBox(
+            width: 90.0,
+            child: RadioListTile<CameraDescription>(
+              title: Icon(getCameraLensIcon(cameraDescription.lensDirection)),
+              groupValue: controller?.description,
+              value: cameraDescription,
+              onChanged: onChanged,
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
+        );
+      }
+    }
+
+    
