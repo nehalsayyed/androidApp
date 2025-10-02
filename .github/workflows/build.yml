@@ -2,6 +2,8 @@ name: Build Flutter APK
 
 on:
   push:
+      paths:
+        - pubspec.yaml
 
 jobs:
   build:
