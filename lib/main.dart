@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flashlight/flashlight.dart';
+import 'package:torch_controller/torch_controller.dart';
 
 void main() => runApp(TorchApp());
 
@@ -22,38 +22,39 @@ class TorchHomePage extends StatefulWidget {
 
 class _TorchHomePageState extends State<TorchHomePage>
     with SingleTickerProviderStateMixin {
+  final controller = TorchController();
   bool isOn = false;
-  late AnimationController _controller;
-  late Animation<double> _glowAnimation;
+  late AnimationController _animController;
+  late Animation<double> _glow;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: Duration(milliseconds: 800),
+    _animController = AnimationController(
       vsync: this,
+      duration: Duration(milliseconds: 800),
     )..repeat(reverse: true);
 
-    _glowAnimation = Tween<double>(begin: 1.0, end: 1.5).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    _glow = Tween<double>(begin: 1.0, end: 1.3).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
     );
   }
 
-  void toggleTorch() async {
+  void toggleTorch() {
     if (isOn) {
-      await Flashlight.lightOff();
-      _controller.stop();
+      controller.turnOff();
+      _animController.stop();
     } else {
-      await Flashlight.lightOn();
-      _controller.repeat(reverse: true);
+      controller.turnOn();
+      _animController.repeat(reverse: true);
     }
     setState(() => isOn = !isOn);
   }
 
   @override
   void dispose() {
-    _controller.dispose();
-    Flashlight.lightOff();
+    _animController.dispose();
+    controller.turnOff();
     super.dispose();
   }
 
@@ -65,19 +66,19 @@ class _TorchHomePageState extends State<TorchHomePage>
         child: GestureDetector(
           onTap: toggleTorch,
           child: AnimatedBuilder(
-            animation: _glowAnimation,
+            animation: _glow,
             builder: (context, child) {
               return Transform.scale(
-                scale: isOn ? _glowAnimation.value : 1.0,
+                scale: isOn ? _glow.value : 1.0,
                 child: Container(
                   padding: EdgeInsets.all(40),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: isOn ? Colors.yellowAccent : Colors.grey[800],
+                    color: isOn ? Colors.amber : Colors.grey[800],
                     boxShadow: isOn
                         ? [
                             BoxShadow(
-                              color: Colors.yellowAccent.withOpacity(0.6),
+                              color: Colors.amber.withOpacity(0.6),
                               blurRadius: 30,
                               spreadRadius: 10,
                             )
