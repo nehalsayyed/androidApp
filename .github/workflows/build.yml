@@ -1,9 +1,7 @@
 name: Build Flutter APK
 
 on:
-  push:
-      paths:
-        - pubspec.yaml
+  workflow_dispatch:  # Enables manual triggering from GitHub UI
 
 jobs:
   build:
@@ -14,13 +12,13 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v3
         with:
-          fetch-depth: 1  # Speeds up checkout by fetching only latest commit
+          fetch-depth: 1
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.35.4'
-          cache: true  # Enables caching of Flutter SDK
+          flutter-version: '3.35.6'
+          cache: true
 
       - name: Cache Flutter dependencies
         uses: actions/cache@v3
@@ -35,11 +33,11 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build APK
-        run: flutter build apk --release --target-platform android-arm64  # Optional: smaller APKs, faster build
+      - name: Build arm64 APK
+        run: flutter build apk --release --target-platform android-arm64
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: release-apk
-          path: build/app/outputs/flutter-apk/
+          name: release-arm64-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
