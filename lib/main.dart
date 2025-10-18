@@ -1,89 +1,85 @@
 import 'package:flutter/material.dart';
-import 'package:simple_3d/simple_3d.dart';
-import 'package:util_simple_3d/util_simple_3d.dart';
-import 'package:simple_3d_renderer/simple_3d_renderer.dart';
 
-void main() async {
-  runApp(const MyApp());
+void main() => runApp(MyApp());
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Side Menu & Bottom Tabs',
+      theme: ThemeData(primarySwatch: Colors.blue),
+      home: HomeScreen(),
+    );
+  }
 }
 
-class MyApp extends StatefulWidget {
-  const MyApp({super.key});
-
+class HomeScreen extends StatefulWidget {
   @override
-  State<StatefulWidget> createState() => _MyAppState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _MyAppState extends State<MyApp> {
-  late final List<Sp3dObj> _objs = [];
-  late Sp3dWorld _world;
-  bool _isLoaded = false;
-  // Use the camera that best suits your needs.
-  // This package allows you to customize various movements,
-  // including camera rotation control, by extending the controller class.
-  final Sp3dCamera _camera = Sp3dCamera(Sp3dV3D(0, 0, 1000), 1000);
-  // final Sp3dFreeLookCamera _camera = Sp3dFreeLookCamera(Sp3dV3D(0,0,1000), 1000);
-  final Sp3dCameraRotationController _camRCtrl = Sp3dCameraRotationController();
-  static const Sp3dCameraZoomController _camZCtrl = Sp3dCameraZoomController();
+class _HomeScreenState extends State<HomeScreen> {
+  int _selectedIndex = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    // Create Sp3dObj.
-    Sp3dObj obj = UtilSp3dGeometry.cube(200, 200, 200, 4, 4, 4);
-    obj.materials.add(FSp3dMaterial.green.deepCopy());
-    obj.fragments[0].faces[0].materialIndex = 1;
-    obj.materials[0] = FSp3dMaterial.grey.deepCopy()
-      ..strokeColor = const Color.fromARGB(255, 0, 0, 255);
-    obj.rotate(Sp3dV3D(1, 1, 0).nor(), 30 * 3.14 / 180);
-    _objs.add(obj);
-    loadImage();
+  final List<Widget> _pages = [
+    Center(child: Text('Home Page')),
+    Center(child: Text('Search Page')),
+    Center(child: Text('Profile Page')),
+  ];
+
+  void _onTabTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
   }
 
-  void loadImage() async {
-    _world = Sp3dWorld(_objs);
-    _world.initImages().then((List<Sp3dObj> errorObjs) {
-      setState(() {
-        _isLoaded = true;
-      });
-    });
+  Widget buildDrawerItem(IconData icon, String title, VoidCallback onTap) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      onTap: onTap,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_isLoaded) {
-      return MaterialApp(
-          title: 'Sp3dRenderer',
-          home: Scaffold(
-              appBar: AppBar(
-                backgroundColor: const Color.fromARGB(255, 0, 255, 0),
-              ),
-              backgroundColor: const Color.fromARGB(255, 33, 33, 33),
-              body: Container()));
-    } else {
-      return MaterialApp(
-        title: 'Sp3dRenderer',
-        home: Scaffold(
-          appBar: AppBar(
-            backgroundColor: const Color.fromARGB(255, 0, 255, 0),
-          ),
-          backgroundColor: const Color.fromARGB(255, 33, 33, 33),
-          body: Column(
-            children: [
-              Sp3dRenderer(
-                const Size(600, 600),
-                const Sp3dV2D(300, 300),
-                _world,
-                // If you want to reduce distortion, shoot from a distance at high magnification.
-                _camera,
-                Sp3dLight(Sp3dV3D(0, 0, -1), syncCam: true),
-                rotationController: _camRCtrl,
-                zoomController: _camZCtrl,
-              ),
-            ],
-          ),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Flutter Layout'),
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(color: Colors.blue),
+              child: Text('Side Menu', style: TextStyle(color: Colors.white, fontSize: 24)),
+            ),
+            buildDrawerItem(Icons.home, 'Home', () {
+              Navigator.pop(context);
+              _onTabTapped(0);
+            }),
+            buildDrawerItem(Icons.search, 'Search', () {
+              Navigator.pop(context);
+              _onTabTapped(1);
+            }),
+            buildDrawerItem(Icons.person, 'Profile', () {
+              Navigator.pop(context);
+              _onTabTapped(2);
+            }),
+          ],
         ),
-      );
-    }
+      ),
+      body: _pages[_selectedIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: _onTabTapped,
+        items: [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Search'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+        ],
+      ),
+    );
   }
 }
