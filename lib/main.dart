@@ -1,84 +1,98 @@
 import 'package:flutter/material.dart';
 
-void main() => runApp(MyApp());
+// Entry point of the application
+void main() => runApp(const MyApp());
 
+// Main application widget
 class MyApp extends StatelessWidget {
+  static const String _title = 'Flutter BottomNavigationBar';
+
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Side Menu & Bottom Tabs',
-      theme: ThemeData(primarySwatch: Colors.blue),
-      home: HomeScreen(),
+    return const MaterialApp(
+      title: _title,
+      home: MyStatefulWidget(),
     );
   }
 }
 
-class HomeScreen extends StatefulWidget {
+// Stateful widget to manage the
+// state of the BottomNavigationBar
+class MyStatefulWidget extends StatefulWidget 
+{
+  const MyStatefulWidget({super.key});
+
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  _MyStatefulWidgetState createState() => _MyStatefulWidgetState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0;
+class _MyStatefulWidgetState extends State<MyStatefulWidget> {
+    
+  // Index to keep track of the selected tab
+  int _selectedIndex = 0; 
 
-  final List<Widget> _pages = [
-    Center(child: Text('Home Page')),
-    Center(child: Text('Search Page')),
-    Center(child: Text('Profile Page')),
+  // TextStyle for the text displayed in each tab
+  static const TextStyle optionStyle =
+      TextStyle(fontSize: 30, fontWeight: FontWeight.bold);
+
+  // List of widgets to display in each tab
+  static const List<Widget> _widgetOptions = <Widget>[
+    Text(
+      'HOME PAGE',
+      style: optionStyle,
+    ),
+    Text(
+      'COURSE PAGE',
+      style: optionStyle,
+    ),
+    Text(
+      'CONTACT GFG',
+      style: optionStyle,
+    ),
   ];
 
-  void _onTabTapped(int index) {
+  // Method to handle tab selection
+  void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
-  }
-
-  Widget buildDrawerItem(IconData icon, String title, VoidCallback onTap) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(title),
-      onTap: onTap,
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Flutter Layout'),
-      ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            DrawerHeader(
-              decoration: BoxDecoration(color: Colors.blue),
-              child: Text('Side Menu', style: TextStyle(color: Colors.white, fontSize: 24)),
-            ),
-            buildDrawerItem(Icons.home, 'Home', () {
-              Navigator.pop(context);
-              _onTabTapped(0);
-            }),
-            buildDrawerItem(Icons.search, 'Search', () {
-              Navigator.pop(context);
-              _onTabTapped(1);
-            }),
-            buildDrawerItem(Icons.person, 'Profile', () {
-              Navigator.pop(context);
-              _onTabTapped(2);
-            }),
-          ],
+        title: const Text(
+          'Nehal',
+          style: TextStyle(
+            color: Colors.white,
+          ),
         ),
+        backgroundColor: Colors.green,
       ),
-      body: _pages[_selectedIndex],
+      body: Center(
+        child: _widgetOptions.elementAt(_selectedIndex),
+      ),
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onTabTapped,
-        items: [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Search'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bookmark),
+            label: 'Courses',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.contact_mail),
+            label: 'Mail',
+          ),
         ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Colors.amber[800],
+        onTap: _onItemTapped,
       ),
     );
   }
