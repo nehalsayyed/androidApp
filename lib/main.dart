@@ -1,98 +1,109 @@
 import 'package:flutter/material.dart';
 
-// Entry point of the application
-void main() => runApp(const MyApp());
+void main() => runApp(MindConnectApp());
 
-// Main application widget
-class MyApp extends StatelessWidget {
-  static const String _title = 'Flutter BottomNavigationBar';
-
-  const MyApp({super.key});
-
+class MindConnectApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      title: _title,
-      home: MyStatefulWidget(),
+    return MaterialApp(
+      title: 'MindConnect',
+      home: SelectionScreen(),
     );
   }
 }
 
-// Stateful widget to manage the
-// state of the BottomNavigationBar
-class MyStatefulWidget extends StatefulWidget 
-{
-  const MyStatefulWidget({super.key});
-
+class SelectionScreen extends StatelessWidget {
   @override
-  _MyStatefulWidgetState createState() => _MyStatefulWidgetState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Choose Your Path')),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ElevatedButton(
+              child: Text('Mentoring'),
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => MentoringForm()));
+              },
+            ),
+            ElevatedButton(
+              child: Text('Counseling'),
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => CounselingForm()));
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _MyStatefulWidgetState extends State<MyStatefulWidget> {
-    
-  // Index to keep track of the selected tab
-  int _selectedIndex = 0; 
-
-  // TextStyle for the text displayed in each tab
-  static const TextStyle optionStyle =
-      TextStyle(fontSize: 30, fontWeight: FontWeight.bold);
-
-  // List of widgets to display in each tab
-  static const List<Widget> _widgetOptions = <Widget>[
-    Text(
-      'HOME PAGE',
-      style: optionStyle,
-    ),
-    Text(
-      'COURSE PAGE',
-      style: optionStyle,
-    ),
-    Text(
-      'CONTACT GFG',
-      style: optionStyle,
-    ),
-  ];
-
-  // Method to handle tab selection
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
+class MentoringForm extends StatelessWidget {
+  final nameController = TextEditingController();
+  final problemController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Nehal',
-          style: TextStyle(
-            color: Colors.white,
-          ),
+      appBar: AppBar(title: Text('Mentoring Form')),
+      body: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          children: [
+            TextField(controller: nameController, decoration: InputDecoration(labelText: 'Your Name')),
+            TextField(controller: problemController, decoration: InputDecoration(labelText: 'Overall Problem')),
+            SizedBox(height: 20),
+            ElevatedButton(
+              child: Text('Request Mentor'),
+              onPressed: () {
+                // Logic to connect with mentor
+              },
+            ),
+          ],
         ),
-        backgroundColor: Colors.green,
       ),
-      body: Center(
-        child: _widgetOptions.elementAt(_selectedIndex),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bookmark),
-            label: 'Courses',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.contact_mail),
-            label: 'Mail',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.amber[800],
-        onTap: _onItemTapped,
+    );
+  }
+}
+
+class CounselingForm extends StatefulWidget {
+  @override
+  _CounselingFormState createState() => _CounselingFormState();
+}
+
+class _CounselingFormState extends State<CounselingForm> {
+  String selectedIssue = 'Relationship';
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Counseling Form')),
+      body: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          children: [
+            DropdownButton<String>(
+              value: selectedIssue,
+              items: ['Relationship', 'Career', 'Other']
+                  .map((issue) => DropdownMenuItem(value: issue, child: Text(issue)))
+                  .toList(),
+              onChanged: (value) {
+                setState(() {
+                  selectedIssue = value!;
+                });
+              },
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              child: Text('Request Counselor'),
+              onPressed: () {
+                // Logic to connect with counselor
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
