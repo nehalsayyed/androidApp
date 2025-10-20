@@ -1,22 +1,18 @@
 import 'package:flutter/material.dart';
-
-void main() => runApp(MindConnectApp());
-
-class MindConnectApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
+                                                  void main() => runApp(PeerInMotionApp());
+                                                  class PeerInMotionApp extends StatelessWidget {
+  @override                                         Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'MindConnect',
-      theme: ThemeData(
-        primarySwatch: Colors.green,
+      title: 'Peer in Motion',
+      theme: ThemeData(                                   primarySwatch: Colors.pink,
         scaffoldBackgroundColor: Colors.white,
         appBarTheme: AppBarTheme(
-          backgroundColor: Colors.green,
+          backgroundColor: Colors.pinkAccent,
           foregroundColor: Colors.white,
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
+            backgroundColor: Colors.pinkAccent,
             foregroundColor: Colors.white,
             padding: EdgeInsets.symmetric(horizontal: 24, vertical: 14),
             textStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -26,10 +22,49 @@ class MindConnectApp extends StatelessWidget {
         inputDecorationTheme: InputDecorationTheme(
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           filled: true,
-          fillColor: Colors.green.shade50,
+          fillColor: Colors.pink.shade50,
         ),
       ),
-      home: SelectionScreen(),
+      home: OpeningScreen(),
+    );
+  }
+}
+
+class OpeningScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Peer in Motion')),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.favorite, size: 80, color: Colors.pinkAccent),
+              SizedBox(height: 30),
+              Text(
+                'Hello! Hi, I’m your sister �\nYou can think of me as someone who truly listens —\na sister you can talk to about anything, anytime.',
+                style: TextStyle(
+                  fontSize: 20,
+                  color: Colors.pink[700],
+                  fontWeight: FontWeight.w500,
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 40),
+              ElevatedButton.icon(
+                icon: Icon(Icons.arrow_forward),
+                label: Text('Continue'),
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => SelectionScreen()));
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -38,18 +73,17 @@ class SelectionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Gebby MindConnect')),
+      appBar: AppBar(title: Text('Peer in Motion')),
       body: Center(
         child: SingleChildScrollView(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(Icons.psychology, size: 80, color: Colors.green),
+              Icon(Icons.psychology, size: 80, color: Colors.pinkAccent),
               SizedBox(height: 20),
               Text(
-                'Welcome to MindConnect',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.green[800]),
+                'Welcome to Peer in Motion',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.pink[700]),
                 textAlign: TextAlign.center,
               ),
               SizedBox(height: 40),
@@ -90,7 +124,7 @@ class MentoringForm extends StatelessWidget {
           children: [
             Text(
               'Let us know how we can help you grow.',
-              style: TextStyle(fontSize: 18, color: Colors.green[700]),
+              style: TextStyle(fontSize: 18, color: Colors.pink[700]),
               textAlign: TextAlign.center,
             ),
             SizedBox(height: 30),
@@ -136,7 +170,7 @@ class _CounselingFormState extends State<CounselingForm> {
           children: [
             Text(
               'Choose the issue you need help with:',
-              style: TextStyle(fontSize: 18, color: Colors.green[700]),
+              style: TextStyle(fontSize: 18, color: Colors.pink[700]),
               textAlign: TextAlign.center,
             ),
             SizedBox(height: 30),
