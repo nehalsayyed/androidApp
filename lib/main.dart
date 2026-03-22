@@ -1,200 +1,93 @@
 import 'package:flutter/material.dart';
-                                                  void main() => runApp(PeerInMotionApp());
-                                                  class PeerInMotionApp extends StatelessWidget {
-  @override                                         Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Peer in Motion',
-      theme: ThemeData(                                   primarySwatch: Colors.pink,
-        scaffoldBackgroundColor: Colors.white,
-        appBarTheme: AppBarTheme(
-          backgroundColor: Colors.pinkAccent,
-          foregroundColor: Colors.white,
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.pinkAccent,
-            foregroundColor: Colors.white,
-            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-            textStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+import 'package:flutter_webrtc/flutter_webrtc.dart';
+
+void main() => runApp(const MaterialApp(home: WebRTCTestHome()));
+
+class WebRTCTestHome extends StatefulWidget {
+  const WebRTCTestHome({super.key});
+
+  @override
+  State<WebRTCTestHome> createState() => _WebRTCTestHomeState();
+}
+
+class _WebRTCTestHomeState extends State<WebRTCTestHome> {
+  RTCPeerConnection? _peerConnection;
+  String _status = "Idle";
+  final List<String> _logs = [];
+
+  // 1. Define Google STUN Servers
+  final Map<String, dynamic> _iceConfig = {
+    'iceServers': [
+      {'urls': 'stun:stun.l.google.com:19302'},
+      {'urls': 'stun:stun1.l.google.com:19302'},
+    ]
+  };
+
+  void _log(String message) {
+    setState(() => _logs.insert(0, "${DateTime.now().second}s: $message"));
+    print(message);
+  }
+
+  Future<void> _startTest() async {
+    try {
+      // 2. Setup Local Audio Stream
+      final Map<String, dynamic> constraints = {'audio': true, 'video': false};
+      MediaStream localStream = await navigator.mediaDevices.getUserMedia(constraints);
+      _log("Local microphone captured.");
+
+      // 3. Create Peer Connection
+      _peerConnection = await createPeerConnection(_iceConfig);
+
+      // 4. Listen for Connection State Changes
+      _peerConnection!.onConnectionState = (state) {
+        _log("Connection State: ${state.name}");
+      };
+
+      _peerConnection!.onIceCandidate = (candidate) {
+        _log("ICE Candidate Found: ${candidate.candidate?.substring(0, 20)}...");
+      };
+
+      // 5. Add track to connection
+      localStream.getTracks().forEach((track) {
+        _peerConnection!.addTrack(track, localStream);
+      });
+
+      // 6. Simulate "Self-Connection" (The Handshake)
+      RTCSessionDescription offer = await _peerConnection!.createOffer();
+      await _peerConnection!.setLocalDescription(offer);
+      _log("Offer Created & Set.");
+
+      // In a real app, 'offer' would go to a server. Here, we just loop it back.
+      await _peerConnection!.setRemoteDescription(offer);
+      RTCSessionDescription answer = await _peerConnection!.createAnswer();
+      await _peerConnection!.setLocalDescription(answer);
+      _log("Answer Created & Loopback active.");
+
+    } catch (e) {
+      _log("Error: $e");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("WebRTC Single-Device Test")),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ElevatedButton(
+              onPressed: _startTest,
+              child: const Text("Run STUN & Connection Test"),
+            ),
           ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          filled: true,
-          fillColor: Colors.pink.shade50,
-        ),
-      ),
-      home: OpeningScreen(),
-    );
-  }
-}
-
-class OpeningScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Peer in Motion')),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.favorite, size: 80, color: Colors.pinkAccent),
-              SizedBox(height: 30),
-              Text(
-                'Hello! Hi, I’m your sister �\nYou can think of me as someone who truly listens —\na sister you can talk to about anything, anytime.',
-                style: TextStyle(
-                  fontSize: 20,
-                  color: Colors.pink[700],
-                  fontWeight: FontWeight.w500,
-                  height: 1.5,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 40),
-              ElevatedButton.icon(
-                icon: Icon(Icons.arrow_forward),
-                label: Text('Continue'),
-                onPressed: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => SelectionScreen()));
-                },
-              ),
-            ],
+          Expanded(
+            child: ListView.builder(
+              itemCount: _logs.length,
+              itemBuilder: (context, i) => ListTile(title: Text(_logs[i])),
+            ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class SelectionScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Peer in Motion')),
-      body: Center(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.psychology, size: 80, color: Colors.pinkAccent),
-              SizedBox(height: 20),
-              Text(
-                'Welcome to Peer in Motion',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.pink[700]),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 40),
-              ElevatedButton.icon(
-                icon: Icon(Icons.school),
-                label: Text('Mentoring'),
-                onPressed: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => MentoringForm()));
-                },
-              ),
-              SizedBox(height: 20),
-              ElevatedButton.icon(
-                icon: Icon(Icons.favorite),
-                label: Text('Counseling'),
-                onPressed: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => CounselingForm()));
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class MentoringForm extends StatelessWidget {
-  final nameController = TextEditingController();
-  final problemController = TextEditingController();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Mentoring Form')),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Text(
-              'Let us know how we can help you grow.',
-              style: TextStyle(fontSize: 18, color: Colors.pink[700]),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: 30),
-            TextField(
-              controller: nameController,
-              decoration: InputDecoration(labelText: 'Your Name'),
-            ),
-            SizedBox(height: 20),
-            TextField(
-              controller: problemController,
-              decoration: InputDecoration(labelText: 'Describe Your Challenge'),
-              maxLines: 4,
-            ),
-            SizedBox(height: 30),
-            ElevatedButton(
-              child: Text('Request Mentor'),
-              onPressed: () {
-                // Logic to connect with mentor
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class CounselingForm extends StatefulWidget {
-  @override
-  _CounselingFormState createState() => _CounselingFormState();
-}
-
-class _CounselingFormState extends State<CounselingForm> {
-  String selectedIssue = 'Relationship';
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Counseling Form')),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Text(
-              'Choose the issue you need help with:',
-              style: TextStyle(fontSize: 18, color: Colors.pink[700]),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: 30),
-            DropdownButtonFormField<String>(
-              value: selectedIssue,
-              decoration: InputDecoration(labelText: 'Issue Type'),
-              items: ['Relationship', 'Career', 'Other']
-                  .map((issue) => DropdownMenuItem(value: issue, child: Text(issue)))
-                  .toList(),
-              onChanged: (value) {
-                setState(() {
-                  selectedIssue = value!;
-                });
-              },
-            ),
-            SizedBox(height: 30),
-            ElevatedButton(
-              child: Text('Request Counselor'),
-              onPressed: () {
-                // Logic to connect with counselor
-              },
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
