@@ -1,93 +1,82 @@
+import 'dart:math' as math;
+
+import 'package:flame/components.dart';
+import 'package:flame/events.dart';
+import 'package:flame/game.dart';
+import 'package:flame/palette.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_intl_phone_field/flutter_intl_phone_field.dart';
 
+/// This example simply adds a rotating white square on the screen.
+/// If you press on a square, it will be removed.
+/// If you press anywhere else, another square will be added.
 void main() {
-  runApp(const MyApp());
+  runApp(
+    GameWidget(
+      game: FlameGame(world: MyWorld()),
+    ),
+  );
 }
 
-class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+class MyWorld extends World with TapCallbacks {
+  @override
+  Future<void> onLoad() async {
+    add(Square(Vector2.zero()));
+  }
 
   @override
-  State<MyApp> createState() => _MyAppState();
+  void onTapDown(TapDownEvent event) {
+    super.onTapDown(event);
+    if (!event.handled) {
+      final touchPoint = event.localPosition;
+      add(Square(touchPoint));
+    }
+  }
 }
 
-class _MyAppState extends State<MyApp> {
-  final GlobalKey<FormState> _formKey = GlobalKey();
+class Square extends RectangleComponent with TapCallbacks {
+  static const speed = 3;
+  static const squareSize = 128.0;
+  static const indicatorSize = 6.0;
 
-  FocusNode focusNode = FocusNode();
+  static final Paint red = BasicPalette.red.paint();
+  static final Paint blue = BasicPalette.blue.paint();
+
+  Square(Vector2 position)
+    : super(
+        position: position,
+        size: Vector2.all(squareSize),
+        anchor: Anchor.center,
+      );
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        appBar: AppBar(
-          title: const Text('Phone Field Example'),
-        ),
-        body: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const SizedBox(height: 30),
-                const TextField(
-                  decoration: InputDecoration(
-                    labelText: 'Name',
-                    border: OutlineInputBorder(
-                      borderSide: BorderSide(),
-                    ),
-                  ),
-                ),
-                const SizedBox(
-                  height: 10,
-                ),
-                const TextField(
-                  decoration: InputDecoration(
-                    labelText: 'Email',
-                    border: OutlineInputBorder(
-                      borderSide: BorderSide(),
-                    ),
-                  ),
-                ),
-                const SizedBox(
-                  height: 10,
-                ),
-                IntlPhoneField(
-                  initialValue: "7012345678",
-                  focusNode: focusNode,
-                  decoration: const InputDecoration(
-                    labelText: 'Phone Number',
-                    border: OutlineInputBorder(
-                      borderSide: BorderSide(),
-                    ),
-                  ),
-                  languageCode: "en",
-                  onChanged: (phone) {
-                    print(phone.completeNumber);
-                  },
-                  onCountryChanged: (country) {
-                    print('Country changed to: ${country.name}');
-                  },
-                ),
-                const SizedBox(
-                  height: 10,
-                ),
-                MaterialButton(
-                  color: Theme.of(context).primaryColor,
-                  textColor: Colors.white,
-                  onPressed: () {
-                    _formKey.currentState?.validate();
-                  },
-                  child: const Text('Submit'),
-                ),
-              ],
-            ),
-          ),
-        ),
+  Future<void> onLoad() async {
+    super.onLoad();
+    add(
+      RectangleComponent(
+        size: Vector2.all(indicatorSize),
+        paint: blue,
       ),
     );
+    add(
+      RectangleComponent(
+        position: size / 2,
+        size: Vector2.all(indicatorSize),
+        anchor: Anchor.center,
+        paint: red,
+      ),
+    );
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    angle += speed * dt;
+    angle %= 2 * math.pi;
+  }
+
+  @override
+  void onTapDown(TapDownEvent event) {
+    removeFromParent();
+    event.handled = true;
   }
 }
