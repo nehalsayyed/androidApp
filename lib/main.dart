@@ -1,101 +1,104 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 
-void main() {
-  runApp(const DeviceInfoApp());
-}
+void main() => runApp(const ChatApp());
 
-class DeviceInfoApp extends StatelessWidget {
-  const DeviceInfoApp({super.key});
-
+class ChatApp extends StatelessWidget {
+  const ChatApp({super.key});
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.blue),
-      home: const DeviceInfoScreen(),
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
+      ),
+      home: const ChatScreen(),
     );
   }
 }
 
-class DeviceInfoScreen extends StatefulWidget {
-  const DeviceInfoScreen({super.key});
-
+class ChatScreen extends StatefulWidget {
+  const ChatScreen({super.key});
   @override
-  State<DeviceInfoScreen> createState() => _DeviceInfoScreenState();
+  State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _DeviceInfoScreenState extends State<DeviceInfoScreen> {
-  final DeviceInfoPlugin deviceInfoPlugin = DeviceInfoPlugin();
-  Map<String, dynamic> _deviceData = <String, dynamic>{};
+class _ChatScreenState extends State<ChatScreen> {
+  final List<Map<String, dynamic>> _messages = [];
+  final TextEditingController _controller = TextEditingController();
 
-  @override
-  void initState() {
-    super.initState();
-    _initDeviceData();
-  }
-
-  Future<void> _initDeviceData() async {
-    var deviceData = <String, dynamic>{};
-
-    try {
-      if (Platform.isAndroid) {
-        deviceData = _readAndroidBuildData(await deviceInfoPlugin.androidInfo);
-      } else {
-        deviceData = {'Error': 'This script is optimized for Android.'};
-      }
-    } catch (e) {
-      deviceData = {'Error': 'Failed to get platform version.'};
-    }
-
-    if (!mounted) return;
-
+  void _handleSend() {
+    if (_controller.text.trim().isEmpty) return;
     setState(() {
-      _deviceData = deviceData;
+      _messages.insert(0, {"text": _controller.text, "isMe": true});
     });
-  }
-
-  Map<String, dynamic> _readAndroidBuildData(AndroidDeviceInfo build) {
-    return <String, dynamic>{
-      'Brand': build.brand,
-      'Model': build.model,
-      'Manufacturer': build.manufacturer,
-      'Android Version': build.version.release,
-      'SDK Int': build.version.sdkInt,
-      'Hardware': build.hardware,
-      'Board': build.board,
-      'Device': build.device,
-      'Product': build.product,
-      'Display': build.display,
-      'Host': build.host,
-      'ID': build.id,
-      'Fingerprint': build.fingerprint,
-      'Supported ABIs': build.supportedAbis,
-      'Is Physical Device': build.isPhysicalDevice,
-      'Security Patch': build.version.securityPatch,
-    };
+    _controller.clear();
+    
+    // Simple bot reply
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (mounted) {
+        setState(() {
+          _messages.insert(0, {"text": "MVP Received! GitHub Runner built this. 🚀", "isMe": false});
+        });
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Android Device Info'),
-        elevation: 4,
-      ),
-      body: _deviceData.isEmpty
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: _deviceData.keys.map((String property) {
-                return Card(
-                  child: ListTile(
-                    title: Text(property, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text('${_deviceData[property]}'),
-                  ),
-                );
-              }).toList(),
+      appBar: AppBar(title: const Text("Cloud Built Chat"), centerTitle: true),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              reverse: true,
+              itemCount: _messages.length,
+              itemBuilder: (context, i) => _ChatBubble(
+                text: _messages[i]['text'], 
+                isMe: _messages[i]['isMe']
+              ),
             ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    decoration: const InputDecoration(hintText: "Type a message...", border: OutlineInputBorder()),
+                    onSubmitted: (_) => _handleSend(),
+                  ),
+                ),
+                IconButton(icon: const Icon(Icons.send), onPressed: _handleSend),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChatBubble extends StatelessWidget {
+  final String text;
+  final bool isMe;
+  const _ChatBubble({required this.text, required this.isMe});
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isMe ? Colors.deepPurple : Colors.grey[300],
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(text, style: TextStyle(color: isMe ? Colors.white : Colors.black)),
+      ),
     );
   }
 }
