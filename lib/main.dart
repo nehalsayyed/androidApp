@@ -1,82 +1,101 @@
-import 'dart:math' as math;
-
-import 'package:flame/components.dart';
-import 'package:flame/events.dart';
-import 'package:flame/game.dart';
-import 'package:flame/palette.dart';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 
-/// This example simply adds a rotating white square on the screen.
-/// If you press on a square, it will be removed.
-/// If you press anywhere else, another square will be added.
 void main() {
-  runApp(
-    GameWidget(
-      game: FlameGame(world: MyWorld()),
-    ),
-  );
+  runApp(const DeviceInfoApp());
 }
 
-class MyWorld extends World with TapCallbacks {
-  @override
-  Future<void> onLoad() async {
-    add(Square(Vector2.zero()));
-  }
+class DeviceInfoApp extends StatelessWidget {
+  const DeviceInfoApp({super.key});
 
   @override
-  void onTapDown(TapDownEvent event) {
-    super.onTapDown(event);
-    if (!event.handled) {
-      final touchPoint = event.localPosition;
-      add(Square(touchPoint));
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.blue),
+      home: const DeviceInfoScreen(),
+    );
+  }
+}
+
+class DeviceInfoScreen extends StatefulWidget {
+  const DeviceInfoScreen({super.key});
+
+  @override
+  State<DeviceInfoScreen> createState() => _DeviceInfoScreenState();
+}
+
+class _DeviceInfoScreenState extends State<DeviceInfoScreen> {
+  final DeviceInfoPlugin deviceInfoPlugin = DeviceInfoPlugin();
+  Map<String, dynamic> _deviceData = <String, dynamic>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _initDeviceData();
+  }
+
+  Future<void> _initDeviceData() async {
+    var deviceData = <String, dynamic>{};
+
+    try {
+      if (Platform.isAndroid) {
+        deviceData = _readAndroidBuildData(await deviceInfoPlugin.androidInfo);
+      } else {
+        deviceData = {'Error': 'This script is optimized for Android.'};
+      }
+    } catch (e) {
+      deviceData = {'Error': 'Failed to get platform version.'};
     }
+
+    if (!mounted) return;
+
+    setState(() {
+      _deviceData = deviceData;
+    });
   }
-}
 
-class Square extends RectangleComponent with TapCallbacks {
-  static const speed = 3;
-  static const squareSize = 128.0;
-  static const indicatorSize = 6.0;
-
-  static final Paint red = BasicPalette.red.paint();
-  static final Paint blue = BasicPalette.blue.paint();
-
-  Square(Vector2 position)
-    : super(
-        position: position,
-        size: Vector2.all(squareSize),
-        anchor: Anchor.center,
-      );
+  Map<String, dynamic> _readAndroidBuildData(AndroidDeviceInfo build) {
+    return <String, dynamic>{
+      'Brand': build.brand,
+      'Model': build.model,
+      'Manufacturer': build.manufacturer,
+      'Android Version': build.version.release,
+      'SDK Int': build.version.sdkInt,
+      'Hardware': build.hardware,
+      'Board': build.board,
+      'Device': build.device,
+      'Product': build.product,
+      'Display': build.display,
+      'Host': build.host,
+      'ID': build.id,
+      'Fingerprint': build.fingerprint,
+      'Supported ABIs': build.supportedAbis,
+      'Is Physical Device': build.isPhysicalDevice,
+      'Security Patch': build.version.securityPatch,
+    };
+  }
 
   @override
-  Future<void> onLoad() async {
-    super.onLoad();
-    add(
-      RectangleComponent(
-        size: Vector2.all(indicatorSize),
-        paint: blue,
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Android Device Info'),
+        elevation: 4,
       ),
+      body: _deviceData.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: _deviceData.keys.map((String property) {
+                return Card(
+                  child: ListTile(
+                    title: Text(property, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text('${_deviceData[property]}'),
+                  ),
+                );
+              }).toList(),
+            ),
     );
-    add(
-      RectangleComponent(
-        position: size / 2,
-        size: Vector2.all(indicatorSize),
-        anchor: Anchor.center,
-        paint: red,
-      ),
-    );
-  }
-
-  @override
-  void update(double dt) {
-    super.update(dt);
-    angle += speed * dt;
-    angle %= 2 * math.pi;
-  }
-
-  @override
-  void onTapDown(TapDownEvent event) {
-    removeFromParent();
-    event.handled = true;
   }
 }
