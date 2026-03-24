@@ -1,102 +1,113 @@
-
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
-/// Flutter code sample for [ActionIconTheme].
+
 void main() {
   runApp(const ActionIconThemeExampleApp());
 }
-class _CustomEndDrawerIcon extends StatelessWidget {
-  const _CustomEndDrawerIcon();
-  @override
-  Widget build(BuildContext context) {
-    final MaterialLocalizations localization = MaterialLocalizations.of(
-      context,
-    );
-    return Icon(
-      Icons.more_horiz,
-      semanticLabel: localization.openAppDrawerTooltip,
-    );
-  }
-}
-class _CustomDrawerIcon extends StatelessWidget {
-  const _CustomDrawerIcon();
-  @override
-  Widget build(BuildContext context) {
-    final MaterialLocalizations localization = MaterialLocalizations.of(
-      context,
-    );
-    return Icon(
-      Icons.segment,
-      semanticLabel: localization.openAppDrawerTooltip,
-    );
-  }
-}
+
 class ActionIconThemeExampleApp extends StatelessWidget {
   const ActionIconThemeExampleApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        actionIconTheme: ActionIconThemeData(
-          backButtonIconBuilder: (BuildContext context) {
-            return const Icon(Icons.arrow_back_ios_new_rounded);
-          },
-          drawerButtonIconBuilder: (BuildContext context) {
-            return const _CustomDrawerIcon();
-          },
-          endDrawerButtonIconBuilder: (BuildContext context) {
-            return const _CustomEndDrawerIcon();
-          },
-        ),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      theme: ThemeData(useMaterial3: true),
+      home: const MyHomePage(title: 'Memory Monitor & Toast Demo'),
     );
   }
 }
-class MyHomePage extends StatelessWidget {
+
+class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
   final String title;
+
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
+}
+
+class _MyHomePageState extends State<MyHomePage> {
+  String _memUsage = "Calculating...";
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Update memory usage every second
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _updateMemoryUsage();
+    });
+  }
+
+  void _updateMemoryUsage() {
+    // ProcessInfo provides Resident Set Size (RSS) in bytes
+    final bytes = ProcessInfo.currentRss;
+    final mb = bytes / (1024 * 1024);
+    
+    if (mounted) {
+      setState(() {
+        _memUsage = "${mb.toStringAsFixed(2)} MB";
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  // Custom Toast Function
+  void _showCustomToast(BuildContext context) {
+    final scaffold = ScaffoldMessenger.of(context);
+    scaffold.showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.bolt, color: Colors.yellow),
+            const SizedBox(width: 12),
+            Text('Action Triggered! Current Mem: $_memUsage'),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(seconds: 2),
+        backgroundColor: Colors.blueGrey[900],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      drawer: Drawer(
+      appBar: AppBar(
+        title: Text(widget.title),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: Chip(
+              label: Text(_memUsage, style: const TextStyle(fontSize: 12)),
+              avatar: const Icon(Icons.memory, size: 16),
+            ),
+          )
+        ],
+      ),
+      body: Center(
         child: Column(
-          children: <Widget>[
-            TextButton(child: const Text('Drawer Item'), onPressed: () {}),
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text("Real-time Memory Usage: $_memUsage", 
+              style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 30),
+            ElevatedButton.icon(
+              onPressed: () => _showCustomToast(context),
+              icon: const Icon(Icons.notifications_active),
+              label: const Text('Show Custom Toast'),
+            ),
           ],
         ),
       ),
-      body: const Center(child: NextPageButton()),
-    );
-  }
-}
-class NextPageButton extends StatelessWidget {
-  const NextPageButton({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton.icon(
-      onPressed: () {
-        Navigator.of(context).push(
-          MaterialPageRoute<MySecondPage>(
-            builder: (BuildContext context) {
-              return const MySecondPage();
-            },
-          ),
-        );
-      },
-      icon: const Icon(Icons.arrow_forward),
-      label: const Text('Next page'),
-    );
-  }
-}
-class MySecondPage extends StatelessWidget {
-  const MySecondPage({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Second page')),
-      endDrawer: const Drawer(),
     );
   }
 }
