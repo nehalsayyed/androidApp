@@ -1,36 +1,102 @@
 import 'package:flutter/material.dart';
-void main() => runApp(const ChipApp());
-class ChipApp extends StatelessWidget {
-  const ChipApp({super.key});
+import 'package:isar/isar.dart';
+import 'package:path_provider/path_provider.dart';
+
+part 'main.g.dart'; // The code generator will create this file
+
+@collection
+class Todo {
+  Id id = Isar.autoIncrement; // Local primary key
+
+  @Index(type: IndexType.value)
+  late String title;
+
+  bool isDone = false;
+}
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // 1. Get the directory where the APK can store data
+  final dir = await getApplicationDocumentsDirectory();
+  
+  // 2. Open the Isar instance
+  final isar = await Isar.open(
+    [TodoSchema],
+    directory: dir.path,
+  );
+
+  runApp(MaterialApp(home: TodoScreen(isar: isar)));
+}
+
+class TodoScreen extends StatefulWidget {
+  final Isar isar;
+  const TodoScreen({super.key, required this.isar});
+
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      theme: ThemeData(colorSchemeSeed: const Color(0xff6750a4)),
-      home: const ActionChipExample(),
-    );
+  State<TodoScreen> createState() => _TodoScreenState();
+}
+
+class _TodoScreenState extends State<TodoScreen> {
+  List<Todo> todos = [];
+  final controller = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshTodos();
   }
-}
-class ActionChipExample extends StatefulWidget {
-  const ActionChipExample({super.key});
-  @override
-  State<ActionChipExample> createState() => _ActionChipExampleState();
-}
-class _ActionChipExampleState extends State<ActionChipExample> {
-  bool favorite = false;
+
+  // Read: Fetch all todos from local DB
+  Future<void> _refreshTodos() async {
+    final allTodos = await widget.isar.todos.where().findAll();
+    setState(() => todos = allTodos);
+  }
+
+  // Create: Add a new todo
+  Future<void> _addTodo() async {
+    final newTodo = Todo()..title = controller.text;
+    await widget.isar.writeTxn(() => widget.isar.todos.put(newTodo));
+    controller.clear();
+    _refreshTodos();
+  }
+
+  // Update: Toggle completion
+  Future<void> _toggleTodo(Todo todo) async {
+    todo.isDone = !todo.isDone;
+    await widget.isar.writeTxn(() => widget.isar.todos.put(todo));
+    _refreshTodos();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('ActionChip Sample')),
-      body: Center(
-        child: ActionChip(
-          avatar: Icon(favorite ? Icons.favorite : Icons.favorite_border),
-          label: const Text('Save to favorites'),
-          onPressed: () {
-            setState(() {
-              favorite = !favorite;
-            });
-          },
-        ),
+      appBar: AppBar(title: const Text('Isar Local Todo')),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                hintText: 'Enter task...',
+                suffixIcon: IconButton(icon: const Icon(Icons.add), onPressed: _addTodo),
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: todos.length,
+              itemBuilder: (context, i) => ListTile(
+                title: Text(todos[i].title),
+                trailing: Checkbox(
+                  value: todos[i].isDone,
+                  onChanged: (_) => _toggleTodo(todos[i]),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
