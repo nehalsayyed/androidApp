@@ -20,11 +20,13 @@ tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
 
+
+
+// Updated fix for Kotlin DSL (build.gradle.kts)
 subprojects {
-    afterEvaluate {
-        if (name == "isar_flutter_libs") {
-            val extension = extensions.findByName("android") as? com.android.build.gradle.BaseExtension
-            extension?.apply {
+    if (name == "isar_flutter_libs") {
+        pluginManager.withPlugin("com.android.library") {
+            extensions.configure<com.android.build.api.dsl.LibraryExtension> {
                 namespace = "dev.isar.isar_flutter_libs"
             }
         }
