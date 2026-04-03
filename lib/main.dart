@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
 import 'package:google_mlkit_subject_segmentation/google_mlkit_subject_segmentation.dart';
-import 'package:google_mlkit_commons/google_mlkit_commons.dart'; // For InputImage
+
+// Note: InputImage is included in the specific package exports above, 
+// so no extra 'commons' import is usually needed if using the latest versions.
 
 void main() => runApp(const MaterialApp(home: SubjectDetectionPage()));
 
@@ -21,12 +23,17 @@ class _SubjectDetectionPageState extends State<SubjectDetectionPage> {
   
   final ImagePicker _picker = ImagePicker();
   
-  // 1. Setup Labeler and Subject Segmenter
-  final ImageLabeler _imageLabeler = ImageLabeler(options: ImageLabelerOptions(confidenceThreshold: 0.5));
+  // 1. Setup Labeler
+  final ImageLabeler _imageLabeler = ImageLabeler(
+    options: ImageLabelerOptions(confidenceThreshold: 0.5),
+  );
+
+  // 2. Setup Subject Segmenter with accurate v0.0.3 parameters
   final SubjectSegmenter _segmenter = SubjectSegmenter(
     options: SubjectSegmenterOptions(
-      enableMultipleSubjects: true, // This is the "No Selfie" advantage!
-      enableConfidenceMask: true,
+      enableForegroundConfidenceMask: true, // Corrected parameter
+      enableForegroundBitmap: true,         // Allows getting the cutout image
+      enableMultipleSubjects: SubjectResultOptions.all, // Uses the required Enum
     ),
   );
 
@@ -41,21 +48,27 @@ class _SubjectDetectionPageState extends State<SubjectDetectionPage> {
 
     final inputImage = InputImage.fromFile(_selectedImage!);
 
-    // 2. Run both models
-    final List<ImageLabel> labels = await _imageLabeler.processImage(inputImage);
-    final result = await _segmenter.processImage(inputImage);
+    try {
+      // Run both models
+      final List<ImageLabel> labels = await _imageLabeler.processImage(inputImage);
+      final result = await _segmenter.processImage(inputImage);
 
-    setState(() {
-      _subjectCount = result.subjects.length;
-      
-      String text = "I see these labels:\n";
-      for (var label in labels) {
-        text += "• ${label.label} (${(label.confidence * 100).toStringAsFixed(0)}%)\n";
-      }
-      
-      text += "\nFound $_subjectCount distinct subjects!";
-      _resultText = text;
-    });
+      setState(() {
+        _subjectCount = result.subjects.length;
+        
+        String text = "I see these labels:\n";
+        for (var label in labels) {
+          text += "• ${label.label} (${(label.confidence * 100).toStringAsFixed(0)}%)\n";
+        }
+        
+        text += "\nFound $_subjectCount distinct subjects!";
+        _resultText = text;
+      });
+    } catch (e) {
+      setState(() {
+        _resultText = "Error during detection: $e";
+      });
+    }
   }
 
   @override
@@ -68,7 +81,7 @@ class _SubjectDetectionPageState extends State<SubjectDetectionPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Subject AI")),
+      appBar: AppBar(title: const Text("Subject AI (No API Key)")),
       backgroundColor: Colors.grey[200],
       body: SingleChildScrollView(
         child: Column(
@@ -95,7 +108,14 @@ class _SubjectDetectionPageState extends State<SubjectDetectionPage> {
                 elevation: 4,
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: Text(_resultText, style: const TextStyle(fontSize: 16)),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: Text(
+                      _resultText, 
+                      style: const TextStyle(fontSize: 16),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -103,8 +123,16 @@ class _SubjectDetectionPageState extends State<SubjectDetectionPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                ElevatedButton(onPressed: () => _processImage(ImageSource.gallery), child: const Text("Gallery")),
-                ElevatedButton(onPressed: () => _processImage(ImageSource.camera), child: const Text("Camera")),
+                ElevatedButton.icon(
+                  onPressed: () => _processImage(ImageSource.gallery), 
+                  icon: const Icon(Icons.photo_library),
+                  label: const Text("Gallery"),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => _processImage(ImageSource.camera), 
+                  icon: const Icon(Icons.camera_alt),
+                  label: const Text("Camera"),
+                ),
               ],
             ),
             const SizedBox(height: 20),
