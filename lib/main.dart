@@ -1,138 +1,85 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Hive.initFlutter();
-  await Hive.openBox('todoBox');
-  runApp(const MaterialApp(home: SimpleTodo()));
-}
+void main() => runApp(const MaterialApp(home: ImageDetectionPage()));
 
-class SimpleTodo extends StatefulWidget {
-  const SimpleTodo({super.key});
+class ImageDetectionPage extends StatefulWidget {
+  const ImageDetectionPage({super.key});
 
   @override
-  State<SimpleTodo> createState() => _SimpleTodoState();
+  State<ImageDetectionPage> createState() => _ImageDetectionPageState();
 }
 
-class _SimpleTodoState extends State<SimpleTodo> {
-  final myBox = Hive.box('todoBox');
-  final controller = TextEditingController();
-  
-  String stunStatus = "Idle";
-  List<String> iceInfo = [];
+class _ImageDetectionPageState extends State<ImageDetectionPage> {
+  File? _selectedImage;
+  String _resultText = "Pick an image to start detection";
+  final ImagePicker _picker = ImagePicker();
 
-  // This is the "Magic" function that talks to Google STUN
-  Future<void> checkStun() async {
-    setState(() {
-      stunStatus = "Requesting Google STUN...";
-      iceInfo.clear();
-    });
+  // 1. Setup the Local Labeler
+  final ImageLabeler _imageLabeler = ImageLabeler(options: ImageLabelerOptions(confidenceThreshold: 0.5));
 
-    // 1. Define the STUN server (Google's public one)
-    Map<String, dynamic> configuration = {
-      "iceServers": [
-        {"url": "stun:stun.l.google.com:19302"},
-      ]
-    };
+  Future<void> _processImage(ImageSource source) async {
+    final XFile? pickedFile = await _picker.pickImage(source: source);
+    
+    if (pickedFile != null) {
+      setState(() {
+        _selectedImage = File(pickedFile.path);
+        _resultText = "Analyzing...";
+      });
 
-    // 2. Create a PeerConnection (this triggers the STUN request)
-    RTCPeerConnection pc = await createPeerConnection(configuration);
+      // 2. Convert file to ML Kit InputImage
+      final inputImage = InputImage.fromFile(_selectedImage!);
 
-    // 3. Listen for "ICE Candidates" (The response from STUN)
-    pc.onIceCandidate = (RTCIceCandidate candidate) {
-      if (candidate.candidate != null) {
-        setState(() {
-          // This string contains your Public IP and Port!
-          iceInfo.add("Type: ${candidate.sdpMid} \nData: ${candidate.candidate}");
-          stunStatus = "Response Received ✅";
-        });
+      // 3. Run detection locally
+      final List<ImageLabel> labels = await _imageLabeler.processImage(inputImage);
+
+      // 4. Extract results
+      String text = "I see:\n";
+      for (ImageLabel label in labels) {
+        text += "${label.label} (${(label.confidence * 100).toStringAsFixed(0)}%)\n";
       }
-    };
 
-    // 4. Force the handshake to start
-    // We create a "Data Channel" and an "Offer" just to make the STUN request fire
-    await pc.createDataChannel("signaling", RTCDataChannelInit());
-    RTCSessionDescription offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
+      setState(() {
+        _resultText = labels.isEmpty ? "Could not detect anything" : text;
+      });
+    }
+  }
 
-    // Wait a bit to collect candidates then close
-    await Future.delayed(const Duration(seconds: 5));
-    await pc.close();
-    if(iceInfo.isEmpty) setState(() => stunStatus = "Failed (Check Internet)");
+  @override
+  void dispose() {
+    _imageLabeler.close(); // Always close to free up memory
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Hive + STUN Tester')),
-      body: Column(
-        children: [
-          // STUN Control Section
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: Colors.blueGrey[50],
-            child: Column(
+      appBar: AppBar(title: const Text("Offline Image AI")),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (_selectedImage != null)
+              Image.file(_selectedImage!, height: 300)
+            else
+              const Icon(Icons.image, size: 100, color: Colors.grey),
+            
+            Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Text(_resultText, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18)),
+            ),
+            
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                Text("STUN Status: $stunStatus", style: const TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 10),
-                ElevatedButton(
-                  onPressed: checkStun, 
-                  child: const Text("Fetch Public IP via STUN")
-                ),
+                ElevatedButton(onPressed: () => _processImage(ImageSource.gallery), child: const Text("Gallery")),
+                ElevatedButton(onPressed: () => _processImage(ImageSource.camera), child: const Text("Camera")),
               ],
-            ),
-          ),
-          
-          // Show STUN/ICE Response
-          if (iceInfo.isNotEmpty)
-            Container(
-              height: 150,
-              padding: const EdgeInsets.all(8),
-              child: ListView(
-                children: iceInfo.map((info) => Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(info, style: const TextStyle(fontSize: 10, fontFamily: 'monospace')),
-                  ),
-                )).toList(),
-              ),
-            ),
-          
-          const Divider(),
-
-          // Your Original Hive UI
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: TextField(
-              controller: controller,
-              decoration: const InputDecoration(labelText: "Store Task in Hive"),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              myBox.add({'task': controller.text, 'done': false});
-              controller.clear();
-              setState(() {});
-            },
-            child: const Text('Add Task'),
-          ),
-          Expanded(
-            child: ValueListenableBuilder(
-              valueListenable: myBox.listenable(),
-              builder: (context, Box box, _) {
-                return ListView.builder(
-                  itemCount: box.length,
-                  itemBuilder: (context, index) {
-                    final item = box.getAt(index);
-                    return ListTile(title: Text(item['task']));
-                  },
-                );
-              },
-            ),
-          ),
-        ],
+            )
+          ],
+        ),
       ),
     );
   }
