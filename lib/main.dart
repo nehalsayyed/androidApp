@@ -1,74 +1,102 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
+import 'package:google_ml_kit/google_ml_kit.dart';
+import 'package:google_mlkit_subject_segmentation/google_mlkit_subject_segmentation.dart';
 
-void main() => runApp(const MaterialApp(home: ImageDetectionPage()));
+void main() => runApp(const MaterialApp(home: SubjectDetectionPage()));
 
-class ImageDetectionPage extends StatefulWidget {
-  const ImageDetectionPage({super.key});
+class SubjectDetectionPage extends StatefulWidget {
+  const SubjectDetectionPage({super.key});
 
   @override
-  State<ImageDetectionPage> createState() => _ImageDetectionPageState();
+  State<SubjectDetectionPage> createState() => _SubjectDetectionPageState();
 }
 
-class _ImageDetectionPageState extends State<ImageDetectionPage> {
+class _SubjectDetectionPageState extends State<SubjectDetectionPage> {
   File? _selectedImage;
-  String _resultText = "Pick an image to start detection";
+  String _resultText = "Pick an image";
+  int _subjectCount = 0;
+  
   final ImagePicker _picker = ImagePicker();
-
-  // 1. Setup the Local Labeler
+  
+  // 1. Setup Labeler and Subject Segmenter
   final ImageLabeler _imageLabeler = ImageLabeler(options: ImageLabelerOptions(confidenceThreshold: 0.5));
+  final SubjectSegmenter _segmenter = SubjectSegmenter(
+    options: SubjectSegmenterOptions(
+      enableMultipleSubjects: true, // This is the "No Selfie" advantage!
+      enableConfidenceMask: true,
+    ),
+  );
 
   Future<void> _processImage(ImageSource source) async {
     final XFile? pickedFile = await _picker.pickImage(source: source);
-    
-    if (pickedFile != null) {
-      setState(() {
-        _selectedImage = File(pickedFile.path);
-        _resultText = "Analyzing...";
-      });
+    if (pickedFile == null) return;
 
-      // 2. Convert file to ML Kit InputImage
-      final inputImage = InputImage.fromFile(_selectedImage!);
+    setState(() {
+      _selectedImage = File(pickedFile.path);
+      _resultText = "Analyzing subjects...";
+    });
 
-      // 3. Run detection locally
-      final List<ImageLabel> labels = await _imageLabeler.processImage(inputImage);
+    final inputImage = InputImage.fromFile(_selectedImage!);
 
-      // 4. Extract results
-      String text = "I see:\n";
-      for (ImageLabel label in labels) {
-        text += "${label.label} (${(label.confidence * 100).toStringAsFixed(0)}%)\n";
+    // 2. Run both models
+    final List<ImageLabel> labels = await _imageLabeler.processImage(inputImage);
+    final result = await _segmenter.processImage(inputImage);
+
+    setState(() {
+      _subjectCount = result.subjects.length;
+      
+      String text = "I see these labels:\n";
+      for (var label in labels) {
+        text += "• ${label.label} (${(label.confidence * 100).toStringAsFixed(0)}%)\n";
       }
-
-      setState(() {
-        _resultText = labels.isEmpty ? "Could not detect anything" : text;
-      });
-    }
+      
+      text += "\nFound $_subjectCount distinct subjects!";
+      _resultText = text;
+    });
   }
 
   @override
   void dispose() {
-    _imageLabeler.close(); // Always close to free up memory
+    _imageLabeler.close();
+    _segmenter.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Offline Image AI")),
-      body: Center(
+      appBar: AppBar(title: const Text("Subject AI")),
+      backgroundColor: Colors.grey[200],
+      body: SingleChildScrollView(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            const SizedBox(height: 20),
             if (_selectedImage != null)
-              Image.file(_selectedImage!, height: 300)
+              Container(
+                margin: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.blue, width: 3),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.file(_selectedImage!, height: 350),
+                ),
+              )
             else
-              const Icon(Icons.image, size: 100, color: Colors.grey),
+              const Icon(Icons.add_a_photo, size: 100, color: Colors.blueGrey),
             
             Padding(
               padding: const EdgeInsets.all(20.0),
-              child: Text(_resultText, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18)),
+              child: Card(
+                elevation: 4,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(_resultText, style: const TextStyle(fontSize: 16)),
+                ),
+              ),
             ),
             
             Row(
@@ -77,7 +105,8 @@ class _ImageDetectionPageState extends State<ImageDetectionPage> {
                 ElevatedButton(onPressed: () => _processImage(ImageSource.gallery), child: const Text("Gallery")),
                 ElevatedButton(onPressed: () => _processImage(ImageSource.camera), child: const Text("Camera")),
               ],
-            )
+            ),
+            const SizedBox(height: 20),
           ],
         ),
       ),
