@@ -24,12 +24,14 @@ class _SubjectDetectionPageState extends State<SubjectDetectionPage> {
     options: ImageLabelerOptions(confidenceThreshold: 0.5),
   );
 
-  // FIXED: Removed the .all and used the class constructor
+  // FIXED: Nested the enableConfidenceMask parameter inside SubjectResultOptions
   final SubjectSegmenter _segmenter = SubjectSegmenter(
     options: SubjectSegmenterOptions(
       enableForegroundConfidenceMask: true,
       enableForegroundBitmap: true,
-      enableMultipleSubjects: SubjectResultOptions(), 
+      enableMultipleSubjects: SubjectResultOptions(
+        enableConfidenceMask: true, 
+      ), 
     ),
   );
 
@@ -39,7 +41,7 @@ class _SubjectDetectionPageState extends State<SubjectDetectionPage> {
 
     setState(() {
       _selectedImage = File(pickedFile.path);
-      _resultText = "Analyzing...";
+      _resultText = "Analyzing subjects...";
     });
 
     final inputImage = InputImage.fromFile(_selectedImage!);
@@ -51,12 +53,12 @@ class _SubjectDetectionPageState extends State<SubjectDetectionPage> {
       setState(() {
         _subjectCount = result.subjects.length;
         
-        String text = "Labels found:\n";
+        String text = "Labels:\n";
         for (var label in labels) {
           text += "• ${label.label} (${(label.confidence * 100).toStringAsFixed(0)}%)\n";
         }
         
-        text += "\nSubjects segmented: $_subjectCount";
+        text += "\nSubjects found: $_subjectCount";
         _resultText = text;
       });
     } catch (e) {
@@ -88,7 +90,12 @@ class _SubjectDetectionPageState extends State<SubjectDetectionPage> {
             
             Padding(
               padding: const EdgeInsets.all(20.0),
-              child: Text(_resultText, textAlign: TextAlign.center),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(15),
+                  child: Text(_resultText, textAlign: TextAlign.center),
+                ),
+              ),
             ),
             
             Row(
