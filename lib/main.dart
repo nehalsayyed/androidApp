@@ -24,13 +24,15 @@ class _SubjectDetectionPageState extends State<SubjectDetectionPage> {
     options: ImageLabelerOptions(confidenceThreshold: 0.5),
   );
 
-  // FIXED: Nested the enableConfidenceMask parameter inside SubjectResultOptions
+  // FIXED: Added all three required named parameters for SubjectResultOptions
   final SubjectSegmenter _segmenter = SubjectSegmenter(
     options: SubjectSegmenterOptions(
       enableForegroundConfidenceMask: true,
       enableForegroundBitmap: true,
       enableMultipleSubjects: SubjectResultOptions(
         enableConfidenceMask: true, 
+        enableSubjectBitmap: true,
+        enableSubjectConfidenceMask: true,
       ), 
     ),
   );
@@ -41,7 +43,7 @@ class _SubjectDetectionPageState extends State<SubjectDetectionPage> {
 
     setState(() {
       _selectedImage = File(pickedFile.path);
-      _resultText = "Analyzing subjects...";
+      _resultText = "Analyzing...";
     });
 
     final inputImage = InputImage.fromFile(_selectedImage!);
