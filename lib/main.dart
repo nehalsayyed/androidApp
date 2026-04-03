@@ -1,8 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:google_ml_kit/google_ml_kit.dart';
+import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
 import 'package:google_mlkit_subject_segmentation/google_mlkit_subject_segmentation.dart';
+import 'package:google_mlkit_commons/google_mlkit_commons.dart'; // For InputImage
 
 void main() => runApp(const MaterialApp(home: SubjectDetectionPage()));
 
